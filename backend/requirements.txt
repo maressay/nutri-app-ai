@@ -5,4 +5,5 @@ pillow
 python-multipart
 sqlalchemy
 pydantic
-firebase-admin
+python-dotenv
+supabase
