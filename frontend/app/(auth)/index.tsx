@@ -1,32 +1,43 @@
 import React, { useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabase'
+import { supabase } from '../../lib/supabase'
 import { Alert, Button, StyleSheet, Text, TextInput, View } from 'react-native'
-interface AuthScreenProps {
-    onAuthSuccess: (session: Session) => void
-}
+import { router } from 'expo-router'
 
-export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
+export default function AuthScreen() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [error, setError] = useState<string | null>(null)
+    const [loading, setLoading] = useState(false)
 
     const handleAuth = async (mode: 'signIn' | 'signUp') => {
         setError(null)
+        setLoading(true)
 
         const { data, error } =
             mode === 'signIn'
                 ? await supabase.auth.signInWithPassword({ email, password })
                 : await supabase.auth.signUp({ email, password })
 
-        if (data.session) {
-            onAuthSuccess(data.session)
-            Alert.alert('✅ Autenticación exitosa')
+        if (error) {
+            setError(error.message)
+            return
         }
+
+        if (mode === 'signUp') {
+            Alert.alert(
+                'Éxito','¡Cuenta creada! Revisa tu correo electrónico para confirmar.'
+            )
+        } else if (data.session) {
+            Alert.alert('Éxito', '¡Inicio de sesión exitoso!')
+            router.replace('/(home)')
+        }
+
+        setLoading(false)
     }
 
     return (
-        <View>
+        <View style={styles.container}>
             <Text>NutriApp IA</Text>
             <TextInput
                 placeholder="Correo electrónico"
