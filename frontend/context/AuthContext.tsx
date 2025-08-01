@@ -5,11 +5,13 @@ import { supabase } from '../lib/supabase'
 type AuthContextType = {
     session: Session | null
     loading: boolean
+    setSession: (s: Session | null) => void
 }
 
 const AuthContext = createContext<AuthContextType>({
     session: null,
     loading: true,
+    setSession: () => {}
 })
 
 export function AuthProvider({
@@ -41,7 +43,7 @@ export function AuthProvider({
     }, [])
 
     return (
-        <AuthContext.Provider value={{ session, loading }}>
+        <AuthContext.Provider value={{ session, loading, setSession }}>
             {children}
         </AuthContext.Provider>
     )

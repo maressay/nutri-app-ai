@@ -3,12 +3,14 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
 import { Alert, Button, StyleSheet, Text, TextInput, View } from 'react-native'
 import { router } from 'expo-router'
+import { useAuth } from '../../context/AuthContext'
 
 export default function AuthScreen() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
+    const { setSession } = useAuth()
 
     const handleAuth = async (mode: 'signIn' | 'signUp') => {
         setError(null)
@@ -29,8 +31,8 @@ export default function AuthScreen() {
                 'Éxito','¡Cuenta creada! Revisa tu correo electrónico para confirmar.'
             )
         } else if (data.session) {
+            router.replace('/')
             Alert.alert('Éxito', '¡Inicio de sesión exitoso!')
-            router.replace('/(home)')
         }
 
         setLoading(false)
