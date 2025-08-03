@@ -21,11 +21,14 @@ export default function OnboardingScreen() {
     const [age, setAge] = useState('')
     const [weight, setWeight] = useState('')
     const [height, setHeight] = useState('')
+    const [gender, setGender] = useState('')
     const [activityLevelId, setActivityLevelId] = useState('')
     const [objectiveId, setObjectiveId] = useState('')
 
     const [activityLevels, setActivityLevels] = useState<any[]>([])
     const [objectives, setObjectives] = useState<any[]>([])
+
+    console.log('Session1:', session)
 
     useEffect(() => {
         if (!session) {
@@ -147,6 +150,20 @@ export default function OnboardingScreen() {
                 ))}
             </Picker>
 
+            <Picker
+                selectedValue={gender}
+                onValueChange={(itemValue: string) => setObjectiveId(itemValue)}
+                style={styles.input}
+            >
+                <Picker.Item label="Selecciona tu nivel de actividad" value="" />
+                {objectives.map((objetive) => (
+                    <Picker.Item
+                        key={objetive.id}
+                        label={objetive.name}
+                        value={objetive.id.toString()}
+                    />
+                ))}
+            </Picker>
             {loading ? (
                 <ActivityIndicator />
             ) : (
