@@ -13,6 +13,7 @@ def get_current_user_id(authorization: str = Header(...)) -> str:
 
 @router.post("/users")
 def create_user(user: UserCreate, user_id: str = Depends(get_current_user_id)):
+    print(f"Creating user with ID: {user_id}")
     user_data = user.model_dump()
     user_data["id"] = user_id
     

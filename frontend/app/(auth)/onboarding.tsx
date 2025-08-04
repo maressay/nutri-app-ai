@@ -27,8 +27,55 @@ export default function OnboardingScreen() {
 
     const [activityLevels, setActivityLevels] = useState<any[]>([])
     const [objectives, setObjectives] = useState<any[]>([])
+    const [errors, setErrors] = useState<any>({})
 
-    console.log('Session1:', session)
+    const API_URL = process.env.EXPO_PUBLIC_API_URL || ''
+
+    const validateInputs = () => {
+        const newErrors: any = {}
+
+        if (!name.trim()) {
+            newErrors.name = 'El nombre es obligatorio'
+        }
+
+        if (!age.trim()) {
+            newErrors.age = 'La edad es obligatoria'
+        } else if (isNaN(Number(age)) || Number(age) <= 0) {
+            newErrors.age = 'La edad debe ser un número válido mayor a 0'
+        }
+
+        if (!weight.trim()) {
+            newErrors.weight = 'El peso es obligatorio'
+        } else if (isNaN(Number(weight)) || Number(weight) <= 0) {
+            newErrors.weight = 'El peso debe ser un número válido mayor a 0'
+        }
+
+        if (!height.trim()) {
+            newErrors.height = 'La altura es obligatoria'
+        } else if (isNaN(Number(height)) || Number(height) <= 0) {
+            newErrors.height = 'La altura debe ser un número válido mayor a 0'
+        }
+
+        if (!gender) {
+            newErrors.gender = 'El sexo es obligatorio'
+        } else if (!['male', 'female'].includes(gender)) {
+            newErrors.gender = 'El sexo debe ser válido'
+        }
+
+        if (!activityLevelId) {
+            newErrors.activityLevelId = 'El nivel de actividad es obligatorio'
+        } else if (isNaN(Number(activityLevelId))) {
+            newErrors.activityLevelId = 'El nivel de actividad debe ser válido'
+        }
+
+        if (!objectiveId) {
+            newErrors.objectiveId = 'El objetivo es obligatorio'
+        } else if (isNaN(Number(objectiveId))) {
+            newErrors.objectiveId = 'El objetivo debe ser válido'
+        }
+
+        return newErrors
+    }
 
     useEffect(() => {
         if (!session) {
@@ -63,20 +110,42 @@ export default function OnboardingScreen() {
 
         setLoading(true)
 
-        const { error } = await supabase.from('users').insert({
-            id: session.user.id,
-            name,
+        const validationErrors = validateInputs()
+        setErrors(validationErrors)
+
+        if (Object.keys(errors).length > 0) {
+            setLoading(false)
+            Alert.alert('Error', 'Por favor, corrige los errores antes de continuar.')
+            return
+        }
+
+        const userPayload = {
+            name: name,
             age: parseInt(age),
-            weight_kg: parseFloat(weight),
-            height_cm: parseInt(height),
+            height_cm: parseFloat(weight),
+            weight_kg: parseFloat(height),
+            gender: gender,
             activity_level_id: parseInt(activityLevelId),
             objective_id: parseInt(objectiveId),
-        })
+        }
+
+        console.log('Payload del usuario:', userPayload)
+
+        const result = await fetch(`${API_URL}/users`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+                },
+            body: JSON.stringify(userPayload)
+            })
 
         setLoading(false)
 
-        if (error) {
-            Alert.alert('Error', error.message)
+        if (!result.ok) {
+            const error = await result.json()
+            console.error('Error al guardar el perfil:', error)
+            Alert.alert('Error', "Error al guardar el perfil")
         } else {
             Alert.alert(
                 'Perfil creado',
@@ -91,6 +160,17 @@ export default function OnboardingScreen() {
     return (
         <View style={styles.container}>
             <Text style={styles.title}>Completa tu perfil</Text>
+            {
+                Object.keys(errors).length > 0 && (
+                    <View style={{ marginBottom: 16 }}>
+                        {Object.entries(errors).map(([key, message]) => (
+                            <Text key={key} style={{ color: 'red', fontSize: 14, marginBottom: 4, alignSelf: 'center' }}>
+                                {message as string}
+                            </Text>
+                        ))}
+                    </View>
+                )
+            }
 
             <TextInput
                 placeholder="Nombre"
@@ -129,7 +209,7 @@ export default function OnboardingScreen() {
                 {activityLevels.map((level) => (
                     <Picker.Item
                         key={level.id}
-                        label={level.name}
+                        label={`${level.name} - ${level.description}`}
                         value={level.id.toString()}
                     />
                 ))}
@@ -140,7 +220,7 @@ export default function OnboardingScreen() {
                 onValueChange={(itemValue: string) => setObjectiveId(itemValue)}
                 style={styles.input}
             >
-                <Picker.Item label="Selecciona tu nivel de actividad" value="" />
+                <Picker.Item label="Selecciona tu objetivo" value="" />
                 {objectives.map((objetive) => (
                     <Picker.Item
                         key={objetive.id}
@@ -152,17 +232,20 @@ export default function OnboardingScreen() {
 
             <Picker
                 selectedValue={gender}
-                onValueChange={(itemValue: string) => setObjectiveId(itemValue)}
+                onValueChange={(itemValue: string) => setGender(itemValue)}
                 style={styles.input}
             >
-                <Picker.Item label="Selecciona tu nivel de actividad" value="" />
-                {objectives.map((objetive) => (
+                <Picker.Item label="Selecciona tu sexo" value="" />
                     <Picker.Item
-                        key={objetive.id}
-                        label={objetive.name}
-                        value={objetive.id.toString()}
+                        key={1}
+                        label={"Hombre"}
+                        value={"male"}
                     />
-                ))}
+                    <Picker.Item
+                        key={1}
+                        label={"Mujer"}
+                        value={"female"}
+                    />
             </Picker>
             {loading ? (
                 <ActivityIndicator />

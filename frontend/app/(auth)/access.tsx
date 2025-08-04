@@ -27,6 +27,7 @@ export default function AuthScreen() {
         }
 
         if (mode === 'signUp') {
+            // TODO: Agregar validacion de cuenta existente con el mismo correo electonico, si ya hay una cuenta con el mismo correo y verificada, no permitir el registro
             Alert.alert(
                 'Éxito','¡Cuenta creada! Revisa tu correo electrónico para confirmar.'
             )

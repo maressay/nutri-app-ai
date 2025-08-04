@@ -1,14 +1,17 @@
-# nutri-app-ai
+# Nutri APP IA | by Maressay
 
-### to-do
+## ✅ Funcionalidades completadas
 
-🟩 PASO 1A – FRONTEND
-  1. Crear `supabase.ts`
-  2. Crear `AuthScreen.tsx`
-  3. Mostrar login/registro
-  4. Mostrar el token y user.id por consola (verificación)
+- Autenticación de usuarios con Supabase (registro y login).
+- Verificación de sesión activa y redirección si no hay sesión.
+- Formulario de perfil del usuario:
+  - Nombre, edad, sexo, peso, altura.
+  - Nivel de actividad y objetivo (cargados desde Supabase).
+- Validación de campos del formulario.
+- Cálculo automático de requerimientos nutricionales (TMB, actividad, objetivo).
+- Envío del perfil al backend con token de sesión.
+- API en FastAPI que guarda o actualiza el perfil en Supabase.
+- Backend local accesible desde Expo en emulador o celular.
+- Uso de variables de entorno para configurar la URL de la API.
 
-🟨 PASO 1B – BACKEND
-  5. Crear endpoint `/users`
-  6. Validar token recibido desde frontend
-  7. Insertar/actualizar perfil en Supabase DB
+### Funcionalidades pendientes

@@ -16,8 +16,6 @@ def calculate_nutrition_targets(user: UserProfileInput) -> NutritionResult:
     activity_level = user.activity_level_id
     objective = user.objective_id
     
-    required_calories = 0
-    
     if gender == "male":
         tmb = (13.397 * weight_kg) + (4.799 * height_cm) - (5.677 * age) + 88.362
     elif gender == "female":
@@ -25,9 +23,10 @@ def calculate_nutrition_targets(user: UserProfileInput) -> NutritionResult:
     
     factor = {
         1: 1.2, # sedentary
-        2: 1.55, # slightly active
-        3: 1.725, # active
-        
+        2: 1.375, # slightly active
+        3: 1.55, # moderately active
+        4: 1.725, # strong exercise
+        5: 1.9 # very strong exercise
     }[activity_level]
     
     calories = tmb * factor
