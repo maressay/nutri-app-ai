@@ -8,3 +8,11 @@ pydantic
 python-dotenv
 supabase
 requests
+
+# tests
+pytest
+pytest-asyncio
+httpx
+anyio
+pytest-cov
+respx

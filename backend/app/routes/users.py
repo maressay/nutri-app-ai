@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Header, Depends
-from utils.nutrition import calculate_nutrition_targets
-from core.supabase import verify_token, supabase
-from models.user import UserCreate
+from app.utils.nutrition import calculate_nutrition_targets
+from app.core.supabase import verify_token, supabase
+from app.models.user import UserCreate
 from postgrest.exceptions import APIError
 
 router = APIRouter()

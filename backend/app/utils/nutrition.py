@@ -1,5 +1,5 @@
 from typing import TypedDict
-from models.user import UserProfileInput
+from app.models.user import UserProfileInput
 
 class NutritionResult(TypedDict):
     required_calories: int
