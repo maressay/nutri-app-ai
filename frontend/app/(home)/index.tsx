@@ -1,4 +1,15 @@
-import { Alert, Button, Text, View } from 'react-native'
+import {
+    Alert,
+    Button,
+    Text,
+    View,
+    Modal,
+    ScrollView,
+    ActivityIndicator,
+    Image,
+    Platform,
+    Pressable,
+} from 'react-native'
 import { useAuth } from '../../context/AuthContext'
 import { Ionicons } from '@expo/vector-icons'
 import {
@@ -8,10 +19,18 @@ import {
     requestMediaLibraryPermissionsAsync,
 } from 'expo-image-picker'
 import { router } from 'expo-router'
+import { useState } from 'react'
 
 export default function Home() {
     const { session } = useAuth()
     const API_URL = process.env.EXPO_PUBLIC_API_URL || ''
+
+    // Estados para el flujo de analisis y previsualizacion
+
+    const [isAnalyzing, setIsAnalyzing] = useState(false)
+    const [previewVisible, setPreviewVisible] = useState(false)
+    const [previewUri, setPreviewUri] = useState<string | null>(null)
+    const [analysis, setAnalysis] = useState<Record<string, any> | null>(null)
 
     const takePhoto = async () => {
         const { status } = await requestCameraPermissionsAsync()
@@ -31,7 +50,10 @@ export default function Home() {
 
         if (!result.canceled) {
             console.log('Foto tomada', result.assets[0].uri)
-            await sendImage(result.assets[0].uri, result.assets[0].fileName || '')
+            await sendImage(
+                result.assets[0].uri,
+                result.assets[0].fileName || ''
+            )
         }
     }
 
@@ -53,7 +75,10 @@ export default function Home() {
 
         if (!result.canceled) {
             console.log('Imagen seleccionada', result.assets[0].uri)
-            await sendImage(result.assets[0].uri, result.assets[0].fileName || '')
+            await sendImage(
+                result.assets[0].uri,
+                result.assets[0].fileName || ''
+            )
         }
     }
 
@@ -65,17 +90,29 @@ export default function Home() {
                 return
             }
 
-            const name = originalName + `meal_${Date.now()}.jpg`
+            if (!API_URL) {
+                Alert.alert(
+                    'Config',
+                    'EXPO_PUBLIC_API_URL no está configurada.'
+                )
+                return
+            }
+
+            setIsAnalyzing(true)
+
+            const safeName =
+                originalName && originalName.trim().length > 0
+                    ? originalName
+                    : `meal_${Date.now()}.jpg`
+
             const file: any = {
                 uri,
-                name,
+                name: safeName,
                 type: 'image/jpeg',
             }
 
             const form = new FormData()
             form.append('image', file)
-
-            Alert.alert(`${API_URL}/analyse_meal`)
 
             const res = await fetch(`${API_URL}/analyse_meal`, {
                 method: 'post',
@@ -93,14 +130,153 @@ export default function Home() {
 
             const data = await res.json()
 
-            console.log('Analisis', data.analysis)
-            Alert.alert(
-                'Análisis listo',
-                JSON.stringify(data.analysis, null, 2)
-            )
+            console.log(JSON.stringify(data, null, 2))
+
+            setPreviewUri(uri)
+            setAnalysis(data?.analysis ?? null)
+            setPreviewVisible(true)
         } catch (e: any) {
             Alert.alert('Error', e?.message || 'No se pudo analizar la imagen')
+        } finally {
+            setIsAnalyzing(false) // ⬅️ importante
         }
+    }
+
+    type Alimento = {
+        nombre: string
+        cantidad_estimada_gramos?: number
+        calorias?: number
+        proteinas_g?: number
+        carbohidratos_g?: number
+        grasas_g?: number
+    }
+
+    const fmtNum = (n: any, digits = 0) => {
+        const num = typeof n === 'string' ? Number(n) : n
+        return Number.isFinite(num) ? Number(num).toFixed(digits) : '-'
+    }
+
+    const getAlimentos = (analysis: any): Alimento[] => {
+        const arr = analysis?.alimentos
+        return Array.isArray(arr) ? arr : []
+    }
+
+    const computeTotalsFromAlimentos = (alimentos: Alimento[]) => {
+        const acc = alimentos.reduce(
+            (s, a) => {
+                s.calorias += a.calorias ?? 0
+                s.proteinas_g += a.proteinas_g ?? 0
+                s.carbohidratos_g += a.carbohidratos_g ?? 0
+                s.grasas_g += a.grasas_g ?? 0
+                return s
+            },
+            { calorias: 0, proteinas_g: 0, carbohidratos_g: 0, grasas_g: 0 }
+        )
+        return acc
+    }
+
+    const renderTotals = (alimentos: Alimento[]) => {
+        if (!alimentos.length) return null
+        const t = computeTotalsFromAlimentos(alimentos)
+        return (
+            <View
+                style={{
+                    marginTop: 4,
+                    padding: 12,
+                    backgroundColor: '#F5F7FA',
+                    borderRadius: 12,
+                }}
+            >
+                <Text
+                    style={{ fontWeight: '700', fontSize: 16, marginBottom: 6 }}
+                >
+                    Totales estimados
+                </Text>
+                <Text>Calorías: {fmtNum(t.calorias)} kcal</Text>
+                <Text>Proteínas: {fmtNum(t.proteinas_g)} g</Text>
+                <Text>Carbohidratos: {fmtNum(t.carbohidratos_g)} g</Text>
+                <Text>Grasas: {fmtNum(t.grasas_g)} g</Text>
+            </View>
+        )
+    }
+
+    const renderItems = (alimentos: Alimento[]) => {
+        if (!alimentos.length) return null
+        return (
+            <View style={{ marginTop: 10 }}>
+                <Text
+                    style={{ fontWeight: '700', fontSize: 16, marginBottom: 6, paddingHorizontal: 12 }}
+                >
+                    Detalle por alimento
+                </Text>
+                {alimentos.map((it, idx) => (
+                    <View
+                        key={`${it?.nombre ?? 'alimento'}-${idx}`}
+                        style={{
+                            borderWidth: 1,
+                            borderColor: '#E5E7EB',
+                            borderRadius: 12,
+                            padding: 10,
+                            marginBottom: 6,
+                            backgroundColor: '#FFF',
+                        }}
+                    >
+                        <Text style={{ fontWeight: '600', textTransform: 'capitalize' }}>
+                            {it?.nombre ?? 'Alimento'}
+                        </Text>
+                        <Text>
+                            Porción: {fmtNum(it?.cantidad_estimada_gramos)} g
+                        </Text>
+                        <Text>Calorías: {fmtNum(it?.calorias)} kcal</Text>
+                        <Text>
+                            Prot: {fmtNum(it?.proteinas_g)} g · Carb:{' '}
+                            {fmtNum(it?.carbohidratos_g)} g · Grasas:{' '}
+                            {fmtNum(it?.grasas_g)} g
+                        </Text>
+                    </View>
+                ))}
+            </View>
+        )
+    }
+
+    const renderAnalysisBlock = () => {
+        if (!analysis) return null
+        const alimentos = getAlimentos(analysis)
+
+        return (
+            <View style={{ marginTop: 12 }}>
+                {renderTotals(alimentos)}
+                {renderItems(alimentos)}
+                {/* Fallback por si llega algo inesperado */}
+                {!alimentos.length && (
+                    <View style={{ marginTop: 10 }}>
+                        <Text
+                            style={{
+                                fontWeight: '700',
+                                fontSize: 16,
+                                marginBottom: 6,
+                            }}
+                        >
+                            Análisis (JSON)
+                        </Text>
+                        <ScrollView horizontal style={{ maxHeight: 180 }}>
+                            <Text
+                                selectable
+                                style={{
+                                    fontFamily: Platform.select({
+                                        ios: 'Menlo',
+                                        android: 'monospace',
+                                    }),
+                                    fontSize: 12,
+                                }}
+                            >
+                                {JSON.stringify(analysis, null, 2)}
+                            </Text>
+                        </ScrollView>
+                    </View>
+                )}
+            </View>
+        )
     }
 
     const addNewMeal = async () => {
@@ -112,18 +288,140 @@ export default function Home() {
     }
 
     return (
-        <View
-            style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
-        >
-            <Text>Bienvenido a Nutri APP</Text>
-            {session && <Text>User ID: {session.user.id}</Text>}
-            <Ionicons
-                name="add-circle"
-                size={70}
-                color={'#0090FF'}
-                style={{ position: 'absolute', bottom: 10 }}
-                onPress={addNewMeal}
-            />
-        </View>
+        <>
+            {isAnalyzing && (
+                <View
+                    style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0,0,0,0.25)',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                    }}
+                    pointerEvents="auto"
+                >
+                    <ActivityIndicator size="large" />
+                    <Text style={{ color: '#FFF', marginTop: 8 }}>
+                        Analizando imagen…
+                    </Text>
+                </View>
+            )}
+
+            <View
+                style={{
+                    flex: 1,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                }}
+            >
+                <Text>Bienvenido a Nutri APP</Text>
+                {session && <Text>User ID: {session.user.id}</Text>}
+                <Ionicons
+                    name="add-circle"
+                    size={70}
+                    color={'#0090FF'}
+                    style={{ position: 'absolute', bottom: 10 }}
+                    onPress={addNewMeal}
+                />
+            </View>
+
+            <Modal
+                visible={previewVisible}
+                animationType="slide"
+                onRequestClose={() => setPreviewVisible(false)}
+            >
+                <View style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
+                    <View
+                        style={{
+                            paddingTop: 10,
+                            paddingHorizontal: 16,
+                            paddingBottom: 12,
+                            backgroundColor: '#FFFFFF',
+                            borderBottomWidth: 1,
+                            borderBottomColor: '#E5E7EB',
+                        }}
+                    >
+                        <Text style={{ fontSize: 18, fontWeight: '700' }}>
+                            Previsualización de comida
+                        </Text>
+                        <Text style={{ color: '#6B7280', marginTop: 2 }}>
+                            Revisa la imagen y el aporte nutricional estimado
+                        </Text>
+                    </View>
+
+                    <ScrollView
+                        style={{ flex: 1 }}
+                        contentContainerStyle={{
+                            padding: 16,
+                            paddingBottom: 150,
+                        }}
+                    >
+                        {previewUri && (
+                            <Image
+                                source={{ uri: previewUri }}
+                                resizeMode="cover"
+                                style={{
+                                    width: '100%',
+                                    height: 240,
+                                    borderRadius: 16,
+                                    backgroundColor: '#E5E7EB',
+                                }}
+                            />
+                        )}
+                        {renderAnalysisBlock()}
+                    </ScrollView>
+
+                    <View
+                        style={{
+                            position: 'absolute',
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            backgroundColor: '#FFFFFF',
+                            borderTopWidth: 1,
+                            borderTopColor: '#E5E7EB',
+                            padding: 16,
+                            gap: 10,
+                        }}
+                    >
+                        {/* Por ahora no hacen nada */}
+                        <Pressable
+                            onPress={() => {}}
+                            style={{
+                                backgroundColor: '#10B981',
+                                paddingVertical: 14,
+                                borderRadius: 12,
+                                alignItems: 'center',
+                            }}
+                        >
+                            <Text
+                                style={{ color: '#FFFFFF', fontWeight: '700' }}
+                            >
+                                Aceptar
+                            </Text>
+                        </Pressable>
+
+                        <Pressable
+                            onPress={() => {setPreviewVisible(false)}}
+                            style={{
+                                backgroundColor: '#EF4444',
+                                paddingVertical: 14,
+                                borderRadius: 12,
+                                alignItems: 'center',
+                            }}
+                        >
+                            <Text
+                                style={{ color: '#FFFFFF', fontWeight: '700' }}
+                            >
+                                Cancelar
+                            </Text>
+                        </Pressable>
+                    </View>
+                </View>
+            </Modal>
+        </>
     )
 }
