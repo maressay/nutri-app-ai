@@ -33,7 +33,6 @@ router = APIRouter()
 
 @router.post("/analyse_meal")
 async def analyse_meal(image: UploadFile = File(...), authorization: str = Header(...)) -> JSONResponse:
-    print(f"Received file: {image.filename}, Content-Type: {image.content_type}")
    
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="Falta token Bearer.")
@@ -66,16 +65,11 @@ async def analyse_meal(image: UploadFile = File(...), authorization: str = Heade
 async def get_recomendation(analysis: dict, user_id: str) -> str:
     logging.info("get_recomendation() exec[][]")
     
-    print(f"Analysis data: {analysis}")
-    print(f"User ID: {user_id}")
-    
     if analysis is None or "alimentos" not in analysis or not isinstance(analysis["alimentos"], list):
         raise ValueError("Análisis inválido o sin alimentos.")
 
     info_user = supabase_admin.table("users").select("*").eq("id", user_id).limit(1).execute()
     user_data = info_user.data
-    
-    print(f"User data: {user_data}")
     
     prompt = f"""
     Eres un nutricionista experto en dar recomendaciones nutricionales. Un usuario con los siguientes datos:
@@ -99,8 +93,6 @@ async def get_recomendation(analysis: dict, user_id: str) -> str:
     No uses markdown.
     """
 
-    print(prompt)
-    
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
@@ -115,7 +107,6 @@ async def get_recomendation(analysis: dict, user_id: str) -> str:
 
     content = response.choices[0].message.content
 
-    print(content)
 
     if content is None:
         raise ValueError("Model response content is None and cannot be parsed as JSON.")
@@ -206,8 +197,6 @@ async def save_analysis(
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="Falta token Bearer.")
     token = authorization.split(" ", 1)[1]
-    print("1", analysis)
-    print("2")
 
     try:
         user_resp = supabase_admin.auth.get_user(jwt=token)
@@ -219,28 +208,18 @@ async def save_analysis(
             raise ValueError("No se pudo obtener el user_id")
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Token inválido: {e}")
-    print("3")
     
     try:
         payload = json.loads(analysis)
     except Exception:
         raise HTTPException(400, "El campo 'analysis' debe ser un JSON válido.")
     
-    print("4")
-
-    print("Payload:", payload)
-
-
     alimentos_raw = payload.get("alimentos") or []
     # filtra entradas mal formadas (a veces llega un objeto sin 'nombre')
     alimentos = [a for a in alimentos_raw if isinstance(a, dict) and a.get("nombre")]
-    print(alimentos)
     if not alimentos:
-        print("5")
         raise HTTPException(400, "analysis.alimentos está vacío o mal formado.")
     
-    print("6")
-
     recommendation = recommendation.strip()
     totals = _compute_totals(alimentos)
 
@@ -292,8 +271,6 @@ async def save_analysis(
         ins_meal = supabase_admin.table("meals").insert(meal_row).execute()
         row = ins_meal.data[0] if ins_meal.data and isinstance(ins_meal.data, list) else None
         meal_id = row.get("id") if row else None
-        
-        print("Inserted meal_id:", meal_id)
     except Exception as e:
         logging.exception("Fallo insert meals")
         raise HTTPException(500, f"No se pudo guardar la comida: {e}")
