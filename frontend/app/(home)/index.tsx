@@ -31,6 +31,9 @@ export default function Home() {
     const [previewVisible, setPreviewVisible] = useState(false)
     const [previewUri, setPreviewUri] = useState<string | null>(null)
     const [analysis, setAnalysis] = useState<Record<string, any> | null>(null)
+    const [imageFile, setImageFile] = useState<any>(null)
+    const [isSavingResult, setIsSavingResult] = useState(false)
+    const [recommendation, setRecommendation] = useState<string | null>(null)
 
     const takePhoto = async () => {
         const { status } = await requestCameraPermissionsAsync()
@@ -111,6 +114,8 @@ export default function Home() {
                 type: 'image/jpeg',
             }
 
+            setImageFile(file)
+
             const form = new FormData()
             form.append('image', file)
 
@@ -134,6 +139,10 @@ export default function Home() {
 
             setPreviewUri(uri)
             setAnalysis(data?.analysis ?? null)
+            setRecommendation(data?.recommendation ?? null)
+
+            console.log(recommendation)
+            
             setPreviewVisible(true)
         } catch (e: any) {
             Alert.alert('Error', e?.message || 'No se pudo analizar la imagen')
@@ -175,6 +184,31 @@ export default function Home() {
         return acc
     }
 
+    const renderRecommendation = (text: string) => {
+        if (!text || text.trim().length === 0) return null
+    
+        return (
+            <View
+                style={{
+                    marginTop: 4,
+                    marginBottom: 10,
+                    padding: 12,
+                    borderColor: '#07d000ff',
+                    backgroundColor: '#fff',
+                    borderWidth: 1,
+                    borderRadius: 12
+                }}
+            >
+                <Text
+                    style={{ fontWeight: '700', fontSize: 16, marginBottom: 6 }}
+                >
+                    Recomendacion 👩‍⚕️
+                </Text>
+                <Text>{text}</Text>
+            </View>
+            )
+    }
+
     const renderTotals = (alimentos: Alimento[]) => {
         if (!alimentos.length) return null
         const t = computeTotalsFromAlimentos(alimentos)
@@ -183,8 +217,10 @@ export default function Home() {
                 style={{
                     marginTop: 4,
                     padding: 12,
-                    backgroundColor: '#F5F7FA',
+                    backgroundColor: '#FFF',
                     borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: "#0095ffff"
                 }}
             >
                 <Text
@@ -245,6 +281,7 @@ export default function Home() {
 
         return (
             <View style={{ marginTop: 12 }}>
+                {renderRecommendation(recommendation || "")}
                 {renderTotals(alimentos)}
                 {renderItems(alimentos)}
                 {/* Fallback por si llega algo inesperado */}
@@ -285,6 +322,54 @@ export default function Home() {
             { text: 'Tomar foto', onPress: takePhoto },
             { text: 'Galería', onPress: pickFromGallery },
         ])
+    }
+
+    const saveAnalysisResults = async () => {
+        console.log('Guardar análisis')
+
+        setIsSavingResult(true)
+
+        if (!analysis || !imageFile) {
+            Alert.alert('Error', 'No hay análisis o imagen para guardar.')
+            return
+        }
+
+        if (!session?.access_token) {
+            Alert.alert('Sesión', 'No hay sesión activa.')
+            router.replace('/')
+            return
+        }
+
+        if (!API_URL) {
+            Alert.alert(
+                'Config',
+                'EXPO_PUBLIC_API_URL no está configurada.'
+            )
+            return
+        }
+
+        const resultFile = imageFile
+        const resultAnalysis = analysis
+
+        const form = new FormData()
+        form.append('image', resultFile)
+        form.append('analysis', JSON.stringify(resultAnalysis))
+        form.append('recommendation', recommendation || '')
+
+        try {
+            const res = await fetch(`${API_URL}/save_analysis`, {
+                method: 'post',
+                headers: {
+                    Authorization: `Bearer ${session.access_token}`,
+                    Accept: 'application/json',
+                },
+                body: form,
+            })
+        } catch (e: any) {
+            Alert.alert('Error', e?.message || 'No se pudo guardar el análisis')
+        } finally {
+            setIsSavingResult(false)
+        }
     }
 
     return (
@@ -389,7 +474,9 @@ export default function Home() {
                     >
                         {/* Por ahora no hacen nada */}
                         <Pressable
-                            onPress={() => {}}
+                            onPress={() => {
+                                saveAnalysisResults()
+                            }}
                             style={{
                                 backgroundColor: '#10B981',
                                 paddingVertical: 14,
