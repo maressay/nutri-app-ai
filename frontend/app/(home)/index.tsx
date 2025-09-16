@@ -365,6 +365,15 @@ export default function Home() {
                 },
                 body: form,
             })
+
+            const data = await res.json();
+            setPreviewVisible(false)
+            setPreviewUri(null)
+            setAnalysis(null)
+            setImageFile(null)
+            setRecommendation(null)
+            Alert.alert('Éxito', 'Análisis guardado');
+
         } catch (e: any) {
             Alert.alert('Error', e?.message || 'No se pudo guardar el análisis')
         } finally {
@@ -475,6 +484,7 @@ export default function Home() {
                         {/* Por ahora no hacen nada */}
                         <Pressable
                             onPress={() => {
+                                if (isSavingResult) return
                                 saveAnalysisResults()
                             }}
                             style={{
@@ -483,12 +493,18 @@ export default function Home() {
                                 borderRadius: 12,
                                 alignItems: 'center',
                             }}
-                        >
+                        > 
+                        {
+                            isSavingResult ? (
+                                <ActivityIndicator color="#FFFFFF" />
+                            ) : (
                             <Text
                                 style={{ color: '#FFFFFF', fontWeight: '700' }}
                             >
                                 Aceptar
                             </Text>
+                            )
+                        }
                         </Pressable>
 
                         <Pressable
