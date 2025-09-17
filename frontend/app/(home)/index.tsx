@@ -26,6 +26,7 @@ export default function Home() {
     const API_URL = process.env.EXPO_PUBLIC_API_URL || ''
 
     // Estados para el flujo de analisis y previsualizacion
+    console.log('Session in Home:', session?.access_token)
 
     const [isAnalyzing, setIsAnalyzing] = useState(false)
     const [previewVisible, setPreviewVisible] = useState(false)
