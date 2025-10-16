@@ -10,8 +10,9 @@ import {
   Pressable,
   StyleSheet,
   Platform,
+  AppState,
 } from 'react-native'
-import { router } from 'expo-router'
+import { router, useFocusEffect } from 'expo-router'
 import { useAuth } from '../../../context/AuthContext'
 
 type Meal = {
@@ -40,32 +41,68 @@ export default function History() {
     return h
   }, [session?.access_token])
 
-  const fetchHistory = useCallback(async () => {
-    try {
-      setError(null)
-      const res = await fetch(`${API_URL}/history_meals`, { headers })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data: Meal[] = await res.json()
-      data.sort(
-        (a, b) =>
-          new Date(b.date_creation).getTime() -
-          new Date(a.date_creation).getTime()
-      )
-      setMeals(data)
-    } catch (e: any) {
-      setError(e?.message || 'Error al obtener historial')
-    } finally {
-      setLoading(false)
-    }
-  }, [API_URL, headers])
+  const fetchHistory = useCallback(
+    async (opts?: { showSpinner?: boolean }) => {
+      const showSpinner = opts?.showSpinner ?? meals.length === 0
+      const controller = new AbortController()
+      try {
+        setError(null)
+        if (showSpinner) setLoading(true)
 
+        const res = await fetch(`${API_URL}/history_meals`, {
+          headers: {
+            ...headers,
+            'Cache-Control': 'no-cache',
+            Pragma: 'no-cache',
+          },
+          cache: 'no-store',
+          signal: controller.signal,
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data: Meal[] = await res.json()
+
+        data.sort(
+          (a, b) =>
+            new Date(b.date_creation).getTime() - new Date(a.date_creation).getTime()
+        )
+        setMeals(data)
+      } catch (e: any) {
+        if (e?.name !== 'AbortError') {
+          setError(e?.message || 'Error al obtener historial')
+        }
+      } finally {
+        if (showSpinner) setLoading(false)
+      }
+      // Nota: devolvemos el controller por si quieres abortar manualmente donde lo llames
+      return controller
+    },
+    [API_URL, headers, meals.length]
+  )
+
+  // Carga inicial
   useEffect(() => {
-    fetchHistory()
+    fetchHistory({ showSpinner: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Revalida cada vez que la pantalla gana foco
+  useFocusEffect(
+    useCallback(() => {
+      fetchHistory({ showSpinner: false })
+    }, [fetchHistory])
+  )
+
+  // Revalida al volver la app a primer plano
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') fetchHistory({ showSpinner: false })
+    })
+    return () => sub.remove()
   }, [fetchHistory])
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
-    await fetchHistory()
+    await fetchHistory({ showSpinner: false })
     setRefreshing(false)
   }, [fetchHistory])
 
@@ -91,7 +128,8 @@ export default function History() {
       >
         <View style={styles.card}>
           <Image
-            source={{ uri: item.img_url }}
+            // cache-buster para evitar imágenes antiguas en caché
+            source={{ uri: `${item.img_url}?v=${encodeURIComponent(item.date_creation)}` }}
             style={{
               width: '100%',
               height: 180,
@@ -250,7 +288,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(0,0,0,0.01)',
 
-    // sombras por plataforma
     ...Platform.select({
       ios: {
         shadowColor: '#000',

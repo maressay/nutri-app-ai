@@ -122,8 +122,8 @@ export default function OnboardingScreen() {
         const userPayload = {
             name: name,
             age: parseInt(age),
-            height_cm: parseFloat(weight),
-            weight_kg: parseFloat(height),
+            height_cm: parseFloat(height),
+            weight_kg: parseFloat(weight),
             gender: gender,
             activity_level_id: parseInt(activityLevelId),
             objective_id: parseInt(objectiveId),
