@@ -183,7 +183,7 @@ export default function History() {
   if (!API_URL)
     return (
       <Centered>
-        <Text style={{ color: '#FCA5A5', textAlign: 'center' }}>
+        <Text style={{ color: '#111827', textAlign: 'center' }}>
           Falta configurar EXPO_PUBLIC_API_URL.
         </Text>
       </Centered>
@@ -193,7 +193,7 @@ export default function History() {
     return (
       <Centered>
         <ActivityIndicator />
-        <Text style={{ color: '#ececedff', marginTop: 8 }}>
+        <Text style={{ color: '#111827', marginTop: 8 }}>
           Cargando historial…
         </Text>
       </Centered>
@@ -202,14 +202,14 @@ export default function History() {
   if (error)
     return (
       <Centered>
-        <Text style={{ color: '#FCA5A5', marginBottom: 8 }}>{`Error: ${error}`}</Text>
+        <Text style={{ color: '#111827', marginBottom: 8 }}>{`Error: ${error}`}</Text>
       </Centered>
     )
 
   if (meals.length === 0)
     return (
       <Centered>
-        <Text style={{ color: '#9CA3AF' }}>Aún no hay registros de comidas.</Text>
+        <Text style={{ color: '#111827' }}>Aún no hay registros de comidas.</Text>
       </Centered>
     )
 
@@ -219,7 +219,7 @@ export default function History() {
         data={meals}
         keyExtractor={(m) => m.id}
         renderItem={renderItem}
-        contentContainerStyle={{ paddingVertical: 5 }}
+        contentContainerStyle={{ paddingVertical: 5, backgroundColor: '#fff' }}
         ListHeaderComponent={
           <Text
             style={{
@@ -251,7 +251,6 @@ function Centered({ children }: { children: React.ReactNode }) {
         alignItems: 'center',
         justifyContent: 'center',
         padding: 24,
-        backgroundColor: '#0B1220',
       }}
     >
       {children}

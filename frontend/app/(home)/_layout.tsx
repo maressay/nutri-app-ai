@@ -9,7 +9,7 @@ export default function HomeTabsLayout() {
         options={{
           title: "Inicio",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" color={color} size={size} />
+            <Ionicons name="home" color={"rgb(31, 82, 237)"} size={size} />
           ),
           headerShown: false,
         }}
@@ -19,7 +19,7 @@ export default function HomeTabsLayout() {
         options={{
           title: "Historial",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="add" color={color} size={size} />
+            <Ionicons name="add" color={"rgb(31, 82, 237)"} size={size} />
           ),
           headerShown: false,
         }}
