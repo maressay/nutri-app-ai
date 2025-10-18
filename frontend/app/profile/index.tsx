@@ -11,7 +11,7 @@ import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 
-const initialUserData = {
+let initialUserData = {
     id: '',
     name: '',
     age: 0,
@@ -65,6 +65,7 @@ export default function Profile() {
             })
             const data = await response.json()
             console.log('Datos del perfil obtenidos:', data)
+            initialUserData = data
             setUserData(data)
         } catch (error) {
             Alert.alert('Error al obtener los datos del perfil: ' + error)
@@ -77,6 +78,7 @@ export default function Profile() {
             router.replace('/')
             return
         }
+        //todo: agregar un or, cuando se haga edit profile, se actualicen los datos
         getProfileData(token)
     }, [session])
 
@@ -112,9 +114,7 @@ export default function Profile() {
                 <TouchableOpacity
                     style={styles.editButton}
                     onPress={() =>
-                        Alert.alert(
-                            'Editar perfil (función aún no implementada)'
-                        )
+                        router.push('/profile/edit_profile')
                     }
                 >
                     <Text style={styles.editText}>Editar</Text>

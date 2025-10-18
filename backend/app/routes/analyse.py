@@ -35,6 +35,7 @@ router = APIRouter()
 
 @router.post("/analyse_meal")
 async def analyse_meal(image: UploadFile = File(...), authorization: str = Header(...)) -> JSONResponse:
+    logging.info("analyse_meal() exec[][]")
    
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="Falta token Bearer.")
@@ -149,7 +150,7 @@ async def analyze_image(image_bytes: bytes, content_type: str) -> dict:
 
 
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-5-mini",
         messages=[
             {"role": "system", "content": prompt},
             {
@@ -163,8 +164,7 @@ async def analyze_image(image_bytes: bytes, content_type: str) -> dict:
                     }
                 ]
             }
-        ],
-        max_tokens=2048,
+        ]
     )
 
     content = response.choices[0].message.content

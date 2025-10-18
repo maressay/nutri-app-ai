@@ -22,7 +22,7 @@ import {
     MediaTypeOptions,
 } from 'expo-image-picker'
 import { router } from 'expo-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 /* ---------- Tipos ---------- */
 type UserInfo = {
@@ -155,6 +155,9 @@ export default function Home() {
     const [loadingUser, setLoadingUser] = useState(false)
     const [userErr, setUserErr] = useState<string | null>(null)
 
+    // Web
+    const fileInputRef = useRef<HTMLInputElement | null>(null)
+
     /* ----- Cargar /users/me ----- */
     const getInfo = async () => {
         if (!session?.access_token) {
@@ -237,6 +240,7 @@ export default function Home() {
     }
 
     const sendImage = async (uri: string, originalName?: string) => {
+        console.log(uri, originalName)
         try {
             if (!session?.access_token) {
                 Alert.alert('Sesión', 'No hay sesión activa.')
@@ -286,6 +290,59 @@ export default function Home() {
             Alert.alert('Error', e?.message || 'No se pudo analizar la imagen')
         } finally {
             setIsAnalyzing(false) // cierra el Modal
+        }
+    }
+
+    const sendImageWeb = async (file: File) => {
+        setImageFile(file)
+        setIsAnalyzing(true)
+
+        const form = new FormData()
+        form.append('image', file)
+        try {
+            const res = await fetch(`${API_URL}/analyse_meal`, {
+                method: 'post',
+                headers: {
+                    Authorization: `Bearer ${session?.access_token}`,
+                    Accept: 'application/json',
+                },
+                body: form,
+            })
+
+            if (!res.ok) {
+                const txt = await res.text()
+                throw new Error(`Error ${res.status}: ${txt}`)
+            }
+            const data = await res.json()
+
+            // Verificar que 'analysis' exista y que el array 'alimentos' contenga elementos
+            if (
+                data?.analysis == null ||
+                !Array.isArray(data.analysis?.alimentos) ||
+                data.analysis.alimentos.length === 0
+            ) {
+                Alert.alert('Error', 'No se detectaron alimentos en la imagen.')
+                alert("No se detectaron alimentos en la imagen.")
+                throw new Error('No se detectaron alimentos en la imagen.')
+            }
+
+            setPreviewUri(URL.createObjectURL(file))
+            setAnalysis(data?.analysis ?? null)
+            setRecommendation(data?.recommendation ?? null)
+            setPreviewVisible(true)
+        } catch (e: any) {
+            Alert.alert('Error', e?.message || 'No se pudo analizar la imagen')
+        } finally {
+            setIsAnalyzing(false) // cierra el Modal
+        }
+    }
+
+    const handleWebFileChange = async (
+        e: React.ChangeEvent<HTMLInputElement>
+    ) => {
+        const file = e.target.files?.[0]
+        if (file) {
+            await sendImageWeb(file)
         }
     }
 
@@ -498,14 +555,16 @@ export default function Home() {
             setAnalysis(null)
             setImageFile(null)
             setRecommendation(null)
+            setIsAnalyzing(false)
             Alert.alert('Éxito', 'Análisis guardado')
 
-            // si cambian metas al guardar:
             getInfo()
         } catch (e: any) {
             Alert.alert('Error', e?.message || 'No se pudo guardar el análisis')
         } finally {
+            setPreviewVisible(false)
             setIsSavingResult(false)
+            setIsAnalyzing(false)
         }
     }
 
@@ -583,14 +642,20 @@ export default function Home() {
                         boxShadow: '0 0px 15px rgba(0,0,0,0.1)',
                     }}
                 >
-                    <Text style={{ fontSize: 18, fontWeight: '700', color: "rgb(31, 82, 237)" }}>
+                    <Text
+                        style={{
+                            fontSize: 18,
+                            fontWeight: '700',
+                            color: 'rgb(31, 82, 237)',
+                        }}
+                    >
                         NutriApp
                     </Text>
                     <Ionicons
                         name="person-circle"
                         size={40}
                         color={'rgb(31, 82, 237)'}
-                        style={{margin: 3}}
+                        style={{ margin: 3 }}
                         title="Ir al perfil"
                         onPress={() => {
                             router.push('../profile')
@@ -638,8 +703,21 @@ export default function Home() {
                         bottom: 10,
                         alignSelf: 'center',
                     }}
-                    onPress={addNewMeal}
+                    onPress={() => {
+                        if (Platform.OS === 'web') fileInputRef.current?.click()
+                        if (Platform.OS !== 'web') addNewMeal()
+                    }}
                 />
+                {Platform.OS === 'web' && (
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        capture="environment"
+                        onChange={handleWebFileChange}
+                    />
+                )}
             </View>
 
             {/* modal de previsualización */}
@@ -728,7 +806,10 @@ export default function Home() {
                         </Pressable>
 
                         <Pressable
-                            onPress={() => setPreviewVisible(false)}
+                            onPress={() => {
+                                setPreviewVisible(false)
+                                setIsAnalyzing(false)
+                            }}
                             style={{
                                 backgroundColor: '#EF4444',
                                 paddingVertical: 14,
