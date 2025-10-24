@@ -31,3 +31,16 @@ def get_meal_detail(meal_id: str, user_id: str = Depends(get_current_user_id)):
         return {"meal": meal.data[0], "items": meal_items.data}
     except APIError as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/delete_meal/{meal_id}")
+def delete_meal(meal_id: str, user_id: str = Depends(get_current_user_id)):
+    try:
+        meal = supabase.table("meals").select("*").eq("id", meal_id).eq("user_id", user_id).execute()
+        if not meal.data:
+            raise HTTPException(status_code=404, detail="Meal not found")
+        supabase.table("meal_items").delete().eq("meal_id", meal_id).execute()
+        supabase.table("meals").delete().eq("id", meal_id).eq("user_id", user_id).execute()
+        return {"detail": "Meal deleted successfully"}
+    except APIError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    

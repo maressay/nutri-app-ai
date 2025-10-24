@@ -649,7 +649,7 @@ export default function Home() {
                             color: 'rgb(31, 82, 237)',
                         }}
                     >
-                        NutriApp
+                        🍎NutriApp
                     </Text>
                     <Ionicons
                         name="person-circle"
