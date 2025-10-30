@@ -1,9 +1,12 @@
-from fastapi import APIRouter, HTTPException, Header, Depends
+from fastapi import APIRouter, HTTPException, Header, Depends, Query
 from app.utils.nutrition import calculate_nutrition_targets
 from app.core.supabase import verify_token, supabase
 from app.models.user import UserCreate
 from postgrest.exceptions import APIError
 
+from typing import Optional
+from datetime import datetime, date as date_cls, time as time_cls, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 router = APIRouter()
 
@@ -108,4 +111,5 @@ def get_current_user(user_id: str = Depends(get_current_user_id)):
             status_code=500,
             detail=f"Error fetching user: {e.message or 'Unknown error'}"
         )
+        
         

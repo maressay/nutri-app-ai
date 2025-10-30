@@ -237,6 +237,7 @@ async def save_analysis(
         content = await image.read()
 
         if not SUPABASE_BUCKET:
+            print("SUPABASE_BUCKET", SUPABASE_BUCKET)
             raise HTTPException(status_code=500, detail="SUPABASE_BUCKET no está configurado.")
 
         storage = supabase_admin.storage.from_(SUPABASE_BUCKET)
