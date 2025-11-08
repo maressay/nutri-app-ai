@@ -18,6 +18,7 @@ export default function HomeTabsLayout() {
         name="history"
         options={{
           title: "Historial",
+          href: "/(home)/history",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="add" color={"rgb(31, 82, 237)"} size={size} />
           ),

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
-import { ActivityIndicator, Image, ScrollView, Text, View } from 'react-native'
-import { useLocalSearchParams, Stack } from 'expo-router'
+import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native'
+import { useLocalSearchParams, Stack, router } from 'expo-router'
 import { useAuth } from '../../../../context/AuthContext'
+import { Ionicons } from '@expo/vector-icons'
 
 type Meal = {
     id: string
@@ -101,9 +102,35 @@ export default function MealDetail() {
 
     const { meal, items } = data
 
+    const { from } = useLocalSearchParams<{ from?: string }>()
+
     return (
         <>
-            <Stack.Screen options={{ title: 'Detalle de comida' }} />
+            {/* <Stack.Screen options={{ title: 'Detalle de comida' }} /> */}
+            <Stack.Screen
+                options={{
+                    title: 'Detalle de comida',
+                    headerLeft: () => (
+                        <Pressable
+                            onPress={() => {
+                                if (from === 'home') {
+                                    router.push('/(home)/')
+                                }
+                                else {
+                                    router.push('/(home)/history')
+                                }
+                            }}
+                            style={{ marginLeft: 8 }}
+                        >
+                            <Ionicons
+                                name="arrow-back"
+                                size={24}
+                                color="#000"
+                            />
+                        </Pressable>
+                    ),
+                }}
+            />
             <ScrollView
                 style={{ flex: 1, backgroundColor: '#FFFFFF' }}
                 contentContainerStyle={{ paddingBottom: 24 }}
@@ -267,7 +294,9 @@ function Card({ title, value }: { title: string; value: string }) {
                 alignItems: 'center',
             }}
         >
-            <Text style={{ color: '#ffc609ff', fontSize: 12, fontWeight: '700' }}>
+            <Text
+                style={{ color: '#ffc609ff', fontSize: 12, fontWeight: '700' }}
+            >
                 {title}
             </Text>
             <Text

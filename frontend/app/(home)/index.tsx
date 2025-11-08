@@ -215,8 +215,8 @@ function MealMiniCard({ item }: { item: DayMeal }) {
         <Pressable
             onPress={() =>
                 router.push({
-                    pathname: '/(home)/history/meal/[id]',
-                    params: { id: item.id },
+                    pathname: `/(home)/history/meal/[id]`,
+                    params: { id: item.id, from: 'home'},
                 })
             }
             style={{
