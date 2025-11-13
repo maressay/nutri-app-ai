@@ -1,5 +1,5 @@
 
-from fastapi import APIRouter, HTTPException, Header, Depends, Query
+from fastapi import APIRouter, HTTPException, Header, Depends, Query, Response
 from app.utils.nutrition import calculate_nutrition_targets
 from app.core.supabase import verify_token, supabase
 from app.models.user import UserCreate
