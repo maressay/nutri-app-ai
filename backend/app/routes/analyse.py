@@ -186,6 +186,30 @@ def extract_json_block(text: str) -> str:
         return match.group(1).strip()
     return text.strip()
 
+from datetime import datetime, date as date_cls, time as time_cls, timedelta, timezone
+
+try:
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError  # Py3.9+
+except Exception:  # ultra-robusto
+    ZoneInfo = None
+    ZoneInfoNotFoundError = Exception
+
+def resolve_tz(tz_name: str):
+    """
+    Devuelve tzinfo robusto:
+    - Intenta ZoneInfo(tz_name)
+    - Si falla y es Lima: -05:00 fijo
+    - Si falla cualquier otra: UTC
+    """
+    if ZoneInfo is not None:
+        try:
+            return ZoneInfo(tz_name)
+        except ZoneInfoNotFoundError:
+            pass
+    if tz_name == "America/Lima":
+        return timezone(timedelta(hours=-5))
+    return timezone.utc
+
 @router.post("/save_analysis")
 async def save_analysis(
     image: UploadFile = File(...),
@@ -268,6 +292,7 @@ async def save_analysis(
         "total_protein_g": totals["proteinas_g"],
         "total_carbs_g": totals["carbohidratos_g"],
         "total_fat_g": totals["grasas_g"],
+        "date_creation": datetime.now(resolve_tz("America/Lima")).isoformat(),
     }
 
     try:
