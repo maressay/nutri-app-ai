@@ -50,13 +50,12 @@ def delete_meal(meal_id: str, user_id: str = Depends(get_current_user_id)):
 
 
 
-# ⬇️ reemplaza tus imports y helpers por esto
 from typing import Optional, Tuple
 from datetime import datetime, date as date_cls, time as time_cls, timedelta, timezone
 
 try:
-    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError  # Py3.9+
-except Exception:  # ultra-robusto
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+except Exception:
     ZoneInfo = None
     ZoneInfoNotFoundError = Exception
 
@@ -94,6 +93,10 @@ def _day_range_utc(date_str: Optional[str], tz_name: str = "America/Lima") -> tu
     start_utc = start_local.astimezone(timezone.utc).isoformat()
     end_utc   = end_local.astimezone(timezone.utc).isoformat()
     return (target_date.isoformat(), start_utc, end_utc)
+
+import io
+import csv
+from openpyxl import Workbook
 
 @router.get("/meals/day")
 def get_meals_and_summary_for_day(
@@ -188,3 +191,215 @@ def get_meals_and_summary_for_day(
             status_code=400,
             detail="El parámetro 'date' debe tener formato YYYY-MM-DD."
         )
+        
+
+def _range_utc(
+    from_date: Optional[str],
+    to_date: Optional[str],
+    tz_name: str,
+) -> Optional[tuple[str, str]]:
+    """
+    Convierte un rango local [from_date, to_date] a rango UTC [start, end).
+
+    - from_date/to_date: YYYY-MM-DD
+    - Si ambos son None: devuelve None → se interpreta como "todo".
+    - Si solo from_date: to_date = from_date.
+
+    Devuelve (start_utc_iso, end_utc_iso).
+    """
+    if not from_date and not to_date:
+        return None  # sin filtro por fecha
+
+    tz = resolve_tz(tz_name)
+
+    if not from_date and to_date:
+        # si solo llega to_date, usamos ese día como único día
+        from_date = to_date
+
+    # Asegurar a los type checkers que from_date ya no es None
+    assert from_date is not None
+
+    start_date = date_cls.fromisoformat(from_date)
+    end_date = date_cls.fromisoformat(to_date) if to_date else start_date
+
+    if end_date < start_date:
+        raise ValueError("to_date no puede ser anterior a from_date")
+
+    start_local = datetime.combine(start_date, time_cls.min).replace(tzinfo=tz)
+    end_local = datetime.combine(end_date + timedelta(days=1), time_cls.min).replace(tzinfo=tz)
+
+    start_utc = start_local.astimezone(timezone.utc).isoformat()
+    end_utc = end_local.astimezone(timezone.utc).isoformat()
+    return start_utc, end_utc
+
+
+def _local_date_time(iso_str: str, tz_name: str) -> tuple[str, str]:
+    """
+    Convierte date_creation ISO (UTC u offset) a (fecha_local, hora_local) en tz_name.
+    """
+    tz = resolve_tz(tz_name)
+    dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+    dt_local = dt.astimezone(tz)
+    return dt_local.date().isoformat(), dt_local.strftime("%H:%M")
+
+
+@router.get("/meals/export_history")
+def export_meals_history(
+    from_date: Optional[str] = Query(
+        default=None,
+        description="Fecha inicio (YYYY-MM-DD). Si se omite junto con to_date, se exporta todo."
+    ),
+    to_date: Optional[str] = Query(
+        default=None,
+        description="Fecha fin (YYYY-MM-DD). Si solo se pasa from_date, se usa el mismo día."
+    ),
+    format: str = Query(
+        default="xlsx",
+        regex="^(csv|xlsx)$",
+        description="Formato de exportación: csv o xlsx"
+    ),
+    tz: str = Query(
+        default="America/Lima",
+        description="Timezone IANA para mostrar fecha/hora (ej. America/Lima)."
+    ),
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Exporta el historial de comidas del usuario:
+
+    - Si NO se envían from_date/to_date -> TODO el historial.
+    - Si se envía from_date (y opcional to_date) -> comidas solo en ese rango local.
+    """
+    try:
+        # 1) Construir query base
+        query = (
+            supabase.table("meals")
+            .select(
+                "id,date_creation,img_url,"
+                "total_calories,total_protein_g,total_carbs_g,total_fat_g"
+            )
+            .eq("user_id", user_id)
+        )
+
+        # 2) Aplicar rango si corresponde
+        range_utc = _range_utc(from_date, to_date, tz)
+        if range_utc is not None:
+            start_utc, end_utc = range_utc
+            query = query.gte("date_creation", start_utc).lt("date_creation", end_utc)
+
+        # 3) Ejecutar query
+        meals_res = query.order("date_creation", desc=False).execute()
+        meals = meals_res.data or []
+
+        # 4) Metadata para el archivo
+        if from_date or to_date:
+            rango_txt = f"{from_date or to_date} → {to_date or from_date}"
+            filename = f"nutriapp_meals_{from_date or to_date}_to_{to_date or from_date}.{format}"
+        else:
+            rango_txt = "Todo el historial"
+            filename = f"nutriapp_meals_history.{format}"
+
+        # 5) CSV
+        if format == "csv":
+            output = io.StringIO()
+            writer = csv.writer(output)
+
+            writer.writerow([
+                "Fecha",
+                "Hora",
+                "ID comida",
+                "Calorías",
+                "Proteínas (g)",
+                "Carbohidratos (g)",
+                "Grasas (g)",
+            ])
+
+            for m in meals:
+                fecha_local, hora_local = _local_date_time(m["date_creation"], tz)
+                writer.writerow([
+                    fecha_local,
+                    hora_local,
+                    m["id"],
+                    m.get("total_calories", 0),
+                    m.get("total_protein_g", 0),
+                    m.get("total_carbs_g", 0),
+                    m.get("total_fat_g", 0),
+                ])
+
+            csv_data = output.getvalue()
+            return Response(
+                content=csv_data,
+                media_type="text/csv; charset=utf-8",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename}"'
+                },
+            )
+
+        # 6) XLSX
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Historial comidas"
+
+        ws["A1"] = "Historial de comidas"
+        ws["A2"] = f"Rango: {rango_txt}"
+        ws["A3"] = f"Zona horaria: {tz}"
+        ws["A4"] = f"Número de registros: {len(meals)}"
+
+        header_row = 6
+        headers = [
+            "Fecha",
+            "Hora",
+            "ID comida",
+            "Calorías",
+            "Proteínas (g)",
+            "Carbohidratos (g)",
+            "Grasas (g)",
+        ]
+        for col, h in enumerate(headers, start=1):
+            ws.cell(row=header_row, column=col, value=h)
+
+        row = header_row + 1
+        for m in meals:
+            fecha_local, hora_local = _local_date_time(m["date_creation"], tz)
+            ws.cell(row=row, column=1, value=fecha_local)
+            ws.cell(row=row, column=2, value=hora_local)
+            ws.cell(row=row, column=3, value=m["id"])
+            ws.cell(row=row, column=4, value=float(m.get("total_calories") or 0))
+            ws.cell(row=row, column=5, value=float(m.get("total_protein_g") or 0))
+            ws.cell(row=row, column=6, value=float(m.get("total_carbs_g") or 0))
+            ws.cell(row=row, column=7, value=float(m.get("total_fat_g") or 0))
+            row += 1
+
+        # Totales
+        ws.cell(row=row, column=2, value="Totales")
+        ws.cell(row=row, column=4, value=f'=SUM(D{header_row+1}:D{row-1})')
+        ws.cell(row=row, column=5, value=f'=SUM(E{header_row+1}:E{row-1})')
+        ws.cell(row=row, column=6, value=f'=SUM(F{header_row+1}:F{row-1})')
+        ws.cell(row=row, column=7, value=f'=SUM(G{header_row+1}:G{row-1})')
+
+        # Ancho columnas
+        col_widths = [12, 8, 30, 12, 14, 16, 12]
+        for i, w in enumerate(col_widths, start=1):
+            col_letter = ws.cell(row=1, column=i).column_letter
+            ws.column_dimensions[col_letter].width = w
+
+        output = io.BytesIO()
+        wb.save(output)
+        xlsx_data = output.getvalue()
+
+        return Response(
+            content=xlsx_data,
+            media_type=(
+                "application/vnd.openxmlformats-officedocument."
+                "spreadsheetml.sheet"
+            ),
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            },
+        )
+
+    except ValueError as e:
+        # from_date/to_date mal formateadas o rango inválido
+        raise HTTPException(status_code=400, detail=str(e))
+    except APIError as e:
+        raise HTTPException(status_code=500, detail=str(e))
